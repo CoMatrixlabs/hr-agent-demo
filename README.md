@@ -9,9 +9,9 @@ A small **LangGraph HR assistant** used as a demo target for the
 ## The point of this repo
 
 The `main` branch is a **benign baseline**: the agent only searches the HR policy / FAQ
-knowledge base and reports the caller's own remaining PTO. It holds **no employee PII**,
-has no data-export or write capability, and is tenant-scoped. AsterGuard scans it and
-returns **Ship**.
+knowledge base and reports the company holiday calendar. It holds **no employee PII**,
+has **no employee-keyed lookups**, no data-export or write capability, and is
+tenant-scoped. AsterGuard scans it and returns **Ship**.
 
 Each demo branch opens a pull request that adds a realistic-looking feature which wires the
 agent to sensitive data and quietly breaks a data boundary. AsterGuard runs on the PR —
@@ -31,7 +31,7 @@ testing — do **not** deploy them. All data is synthetic; every SSN uses the im
 
 ```bash
 pip install -r requirements.txt
-python data/seed.py                 # seed synthetic PTO rows + HR policy docs (no PII)
+python data/seed.py                 # seed company holidays + HR policy docs (no PII)
 export OPENAI_API_KEY=...           # the agent uses gpt-4o-mini
 python -c "from app.graph import build_graph; print(build_graph())"
 ```

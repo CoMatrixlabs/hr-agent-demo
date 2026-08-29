@@ -1,8 +1,9 @@
-"""PTO-balance lookups for the HR assistant.
+"""Company-level lookups for the HR assistant.
 
-Deliberately holds NO employee PII — just a remaining-PTO figure the assistant needs to
-answer "how many days do I have left?". Every read is parameterized and scoped to the
-caller's business unit; there is no name, SSN, salary, or roster here.
+Deliberately holds NO employee data — just the company holiday calendar the assistant
+needs to answer "when is the office closed?". Every read is parameterized and scoped to
+the caller's business unit; there is no employee_id, name, SSN, salary, PTO-per-person,
+or roster here — only a company-wide, non-personal table.
 """
 from __future__ import annotations
 
@@ -13,12 +14,13 @@ from contextlib import contextmanager
 _DSN = os.environ.get("HR_AGENT_DSN", "hr_agent.db")
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS pto (
-    employee_id    INTEGER PRIMARY KEY,
-    tenant_id      INTEGER NOT NULL,
-    days_remaining INTEGER NOT NULL DEFAULT 0
+CREATE TABLE IF NOT EXISTS holidays (
+    id         INTEGER PRIMARY KEY,
+    tenant_id  INTEGER NOT NULL,
+    name       TEXT    NOT NULL,
+    date       TEXT    NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_pto_tenant ON pto(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_holidays_tenant ON holidays(tenant_id);
 """
 
 
@@ -32,12 +34,11 @@ def connect():
         con.close()
 
 
-def pto_balance(tenant_id: int, employee_id: int) -> dict | None:
-    """Return remaining PTO days for ONE employee in the caller's unit. Parameterized, no PII."""
+def holiday_schedule(tenant_id: int) -> list[dict]:
+    """Return the company holiday calendar for the caller's unit. Parameterized, no PII."""
     with connect() as con:
         cur = con.execute(
-            "SELECT days_remaining FROM pto WHERE tenant_id = ? AND employee_id = ?",
-            (tenant_id, employee_id),
+            "SELECT name, date FROM holidays WHERE tenant_id = ? ORDER BY date",
+            (tenant_id,),
         )
-        row = cur.fetchone()
-        return dict(row) if row else None
+        return [dict(row) for row in cur.fetchall()]

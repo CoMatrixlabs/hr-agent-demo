@@ -1,9 +1,9 @@
 """Runtime settings for the HR assistant.
 
 Baseline is a benign HR-policy assistant: it answers questions from the HR policy /
-FAQ knowledge base and reports the caller's own remaining PTO. It holds no employee
-PII and has no data-export or write capability. Sensitive tools, when added, require
-human approval.
+FAQ knowledge base and reports the company holiday calendar. It holds no employee
+PII, has no employee-keyed lookups, and has no data-export or write capability.
+Sensitive tools, when added, require human approval.
 """
 from __future__ import annotations
 
