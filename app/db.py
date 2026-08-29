@@ -1,9 +1,8 @@
-"""Employee-records database access.
+"""PTO-balance lookups for the HR assistant.
 
-A thin SQLite layer holding employee records across multiple business units (tenants).
-Every read is parameterized and scoped to the caller's business unit. Sensitive columns
-(ssn, salary_cents) exist so the demo can show masking vs. leakage — real deployments
-would tokenize these at rest.
+Deliberately holds NO employee PII — just a remaining-PTO figure the assistant needs to
+answer "how many days do I have left?". Every read is parameterized and scoped to the
+caller's business unit; there is no name, SSN, salary, or roster here.
 """
 from __future__ import annotations
 
@@ -11,20 +10,15 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
-_DSN = os.environ.get("HR_AGENT_DSN", "employee_records.db")
+_DSN = os.environ.get("HR_AGENT_DSN", "hr_agent.db")
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS employees (
-    id            INTEGER PRIMARY KEY,
-    tenant_id     INTEGER NOT NULL,
-    name          TEXT    NOT NULL,
-    email         TEXT    NOT NULL,
-    ssn           TEXT    NOT NULL,
-    salary_cents  INTEGER NOT NULL DEFAULT 0,
-    manager       TEXT    NOT NULL,
-    dept          TEXT    NOT NULL
+CREATE TABLE IF NOT EXISTS pto (
+    employee_id    INTEGER PRIMARY KEY,
+    tenant_id      INTEGER NOT NULL,
+    days_remaining INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_employees_tenant ON employees(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pto_tenant ON pto(tenant_id);
 """
 
 
@@ -38,23 +32,12 @@ def connect():
         con.close()
 
 
-def find_employees(tenant_id: int, name_like: str) -> list[dict]:
-    """Look up employees in ONE business unit by (partial) name. Parameterized + tenant-scoped."""
+def pto_balance(tenant_id: int, employee_id: int) -> dict | None:
+    """Return remaining PTO days for ONE employee in the caller's unit. Parameterized, no PII."""
     with connect() as con:
         cur = con.execute(
-            "SELECT id, tenant_id, name, email, ssn, salary_cents, manager, dept "
-            "FROM employees WHERE tenant_id = ? AND name LIKE ? ORDER BY name",
-            (tenant_id, f"%{name_like}%"),
+            "SELECT days_remaining FROM pto WHERE tenant_id = ? AND employee_id = ?",
+            (tenant_id, employee_id),
         )
-        return [dict(r) for r in cur.fetchall()]
-
-
-def update_contact(tenant_id: int, employee_id: int, new_email: str) -> int:
-    """Effectful write — used only behind the approval gate. Tenant-scoped."""
-    with connect() as con:
-        cur = con.execute(
-            "UPDATE employees SET email = ? WHERE tenant_id = ? AND id = ?",
-            (new_email, tenant_id, employee_id),
-        )
-        con.commit()
-        return cur.rowcount
+        row = cur.fetchone()
+        return dict(row) if row else None

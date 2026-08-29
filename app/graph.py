@@ -1,9 +1,9 @@
 """The HR assistant, as a LangGraph state machine.
 
 Adapted from the LangGraph "customer support bot" tutorial pattern (MIT):
-an assistant node bound to tools, a tool-executor node, and — critically — a human
-approval interrupt before any SENSITIVE (write/effectful) tool runs. That interrupt is
-the deterministic control the vulnerable branch removes.
+an assistant node bound to tools, a tool-executor node, and a human-approval interrupt
+before any SENSITIVE (write/effectful) tool runs. The baseline exposes only read-only,
+PII-free tools, so there is nothing to gate — the demo PR is what adds sensitive tools.
 
   https://langchain-ai.github.io/langgraph/tutorials/customer-support/
 """
@@ -21,11 +21,10 @@ from . import tools as T
 from .config import settings
 
 SYSTEM_PROMPT = (
-    "You are an HR assistant. Help each employee with THEIR OWN records only, and help HR "
-    "staff within their own business unit. Never reveal another employee's SSN, salary, or "
-    "records. Use lookup_my_record and search_policy to ground answers. For any change to a "
-    "record, call update_contact — it will be held for human approval. Do not attempt to "
-    "export or send employee data anywhere."
+    "You are an HR assistant. Help each employee with THEIR OWN questions only. Use "
+    "search_policy for HR policy / benefits / how-to questions and pto_balance to report "
+    "the caller's own remaining PTO. You have no access to employee records and cannot "
+    "send data anywhere."
 )
 
 
@@ -52,7 +51,6 @@ def build_graph():
     g.add_conditional_edges("assistant", _route, {"tools": "tools", END: END})
     g.add_edge("tools", "assistant")
 
-    # HUMAN-IN-THE-LOOP: pause before the tools node so an operator can approve any
-    # sensitive tool call before it executes. require_tool_approval gates this.
-    interrupt = ["tools"] if settings.require_tool_approval else []
+    # HUMAN-IN-THE-LOOP: pause before executing any sensitive tool (none in the baseline).
+    interrupt = ["tools"] if (settings.require_tool_approval and T.SENSITIVE_TOOLS) else []
     return g.compile(interrupt_before=interrupt)

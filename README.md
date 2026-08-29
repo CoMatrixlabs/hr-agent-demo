@@ -1,26 +1,25 @@
 # hr-agent-demo
 
-A small **LangGraph HR assistant**, used as a demo target for the
-[AsterGuard](https://agenticrisklabs.io) pre-merge containment gate. It answers an
-employee's questions about their own records, helps HR staff within their business unit,
-and can update a contact email — with a human-approval interrupt before any write.
+A small **LangGraph HR assistant** used as a demo target for the
+[AsterGuard](https://agenticrisklabs.io) pre-merge containment gate.
 
 > Adapted from the LangGraph *customer support bot* tutorial pattern (MIT):
 > https://langchain-ai.github.io/langgraph/tutorials/customer-support/
 
-## Why it exists
+## The point of this repo
 
-The `main` branch is a **safe baseline**: tenant-scoped queries, masked PII (SSN + salary),
-human approval on write tools, tenant + clearance filtering on retrieval, and conversation
-memory scoped per thread. AsterGuard scans it and returns **Ship**.
+The `main` branch is a **benign baseline**: the agent only searches the HR policy / FAQ
+knowledge base and reports the caller's own remaining PTO. It holds **no employee PII**,
+has no data-export or write capability, and is tenant-scoped. AsterGuard scans it and
+returns **Ship**.
 
-Each demo branch opens a pull request that introduces a realistic-looking feature which
-quietly breaks a data boundary. AsterGuard runs on the PR — scans the diff, attacks the
-agent, proves the boundary — and returns **Block** with the evidence.
+Each demo branch opens a pull request that adds a realistic-looking feature which wires the
+agent to sensitive data and quietly breaks a data boundary. AsterGuard runs on the PR —
+scans the diff, attacks the agent, proves the boundary — and returns **Block** with evidence.
 
 | Branch | The "feature" | The boundary it breaks |
 |---|---|---|
-| `feat/org-wide-hr` | let the agent look up any employee org-wide + export the roster + drop the approval gate | PII exfiltration, cross-unit read, unmasked persistence |
+| `feat/org-wide-hr` | wire the agent to the employee-records DB org-wide + let it export the roster | PII exfiltration, cross-unit reads, unmasked persistence, unapproved export |
 
 ## ⚠️ Deliberately vulnerable on demo branches
 
@@ -32,7 +31,7 @@ testing — do **not** deploy them. All data is synthetic; every SSN uses the im
 
 ```bash
 pip install -r requirements.txt
-python data/seed.py                 # seed synthetic employees + HR policy docs
+python data/seed.py                 # seed synthetic PTO rows + HR policy docs (no PII)
 export OPENAI_API_KEY=...           # the agent uses gpt-4o-mini
 python -c "from app.graph import build_graph; print(build_graph())"
 ```
@@ -40,5 +39,4 @@ python -c "from app.graph import build_graph; print(build_graph())"
 ## The gate
 
 `.github/workflows/asterguard.yml` runs the AsterGuard Action on every PR. It needs two repo
-settings: `vars.ASTERGUARD_MCP_URL` (the hosted gateway) and `secrets.ASTERGUARD_TOKEN` (the
-org scan credential).
+settings: `vars.ASTERGUARD_MCP_URL` (the hosted gateway) and `secrets.ASTERGUARD_TOKEN`.
